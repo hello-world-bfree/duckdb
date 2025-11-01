@@ -2209,7 +2209,6 @@ string ShellState::EvaluateSQL(const string &sql) {
 	auto &con = *conn;
 	auto result = con.Query(sql);
 	if (result->HasError()) {
-		PrintDatabaseError(result->GetError());
 		return EVAL_SQL_ERROR;
 	}
 	auto is_query = result->properties.return_type == duckdb::StatementReturnType::QUERY_RESULT;
@@ -2273,6 +2272,7 @@ bool ShellState::OpenDatabase(const vector<string> &args) {
 
 			auto val = EvaluateSQL(query);
 			if (val == EVAL_SQL_ERROR) {
+				PrintF(PrintOutput::STDERR, "Error: failed to evaluate --sql query: '%s'\n", query);
 				return false;
 			} else if (val == EVAL_SQL_NOT_A_QUERY) {
 				PrintF(PrintOutput::STDERR, "Error: the --sql argument, '%s', is not a valid query\n");

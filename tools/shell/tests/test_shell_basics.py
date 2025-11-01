@@ -1191,7 +1191,7 @@ def test_open_with_sql_w_db_error(shell):
         .statement(".open -sql \"select 'test'::int;\"")
     )
     result = test.run()
-    result.check_stderr("Error")
+    result.check_stderr("Error: failed to evaluate --sql query")
 
 def test_open_with_sql_and_no_return(shell):
     test = (
