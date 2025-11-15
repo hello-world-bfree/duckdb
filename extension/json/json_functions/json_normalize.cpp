@@ -124,7 +124,7 @@ static void JSONNormalizeFunction(DataChunk &args, ExpressionState &state, Vecto
 	// Convert merged schema to a LogicalType
 	LogicalType normalized_type;
 	try {
-		normalized_type = JSONStructure::StructureToType(context, merged_schema,
+		normalized_type = JSONStructure::StructureToType(state.GetContext(), merged_schema,
 		                                                  NumericLimits<idx_t>::Maximum(),
 		                                                  1.0, NumericLimits<idx_t>::Maximum(),
 		                                                  0, LogicalTypeId::SQLNULL);
