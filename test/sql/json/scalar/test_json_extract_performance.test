@@ -1,0 +1,57 @@
+# name: test/sql/json/scalar/test_json_extract_performance.test
+# description: Test that document caching works for multiple extractions
+# group: [scalar]
+
+require json
+
+# Create test data
+statement ok
+CREATE TABLE perf_test AS SELECT
+    row_number() OVER () as id,
+    ('{"user_id": ' || row_number() OVER () || ', "email": "user' || row_number() OVER () || '@example.com", "age": ' || (20 + (row_number() OVER () % 50)) || ', "status": "active"}')::JSON as json_col
+FROM range(1000);
+
+# Test single key extraction
+query I
+SELECT COUNT(*) FROM (SELECT json_col->>'user_id' FROM perf_test);
+----
+1000
+
+# Test multiple key extraction from same JSON (should benefit from caching)
+query I
+SELECT COUNT(*) FROM (
+    SELECT
+        json_col->>'user_id' as user_id,
+        json_col->>'email' as email,
+        json_col->>'age' as age,
+        json_col->>'status' as status
+    FROM perf_test
+);
+----
+1000
+
+# Verify the data is correct
+query IIII
+SELECT
+    json_col->>'user_id' as user_id,
+    json_col->>'email' as email,
+    json_col->>'age' as age,
+    json_col->>'status' as status
+FROM perf_test
+WHERE id = 1;
+----
+1	user1@example.com	21	active
+
+# Test with WHERE clause filtering
+query I
+SELECT COUNT(*) FROM (
+    SELECT json_col->>'user_id', json_col->>'email'
+    FROM perf_test
+    WHERE json_col->>'status' = 'active'
+);
+----
+1000
+
+# Cleanup
+statement ok
+DROP TABLE perf_test;

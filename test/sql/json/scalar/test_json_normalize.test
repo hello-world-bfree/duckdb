@@ -1,0 +1,66 @@
+# name: test/sql/json/scalar/test_json_normalize.test
+# description: Test json_normalize function for schema normalization
+# group: [scalar]
+
+require json
+
+# Test basic normalization with consistent schema
+query I
+SELECT json_normalize('{"a": 1, "b": 2}');
+----
+{"a":1,"b":2}
+
+# Test normalization with missing keys
+statement ok
+CREATE TABLE test_normalize AS SELECT * FROM (VALUES
+    ('{"id": 1, "name": "Alice", "age": 30}'),
+    ('{"id": 2, "name": "Bob"}'),
+    ('{"id": 3, "age": 25, "city": "NYC"}')
+) t(json_col);
+
+query I
+SELECT json_normalize(json_col::JSON) FROM test_normalize ORDER BY json_col;
+----
+{"age":25,"city":"NYC","id":3,"name":null}
+{"age":30,"city":null,"id":1,"name":"Alice"}
+{"age":null,"city":null,"id":2,"name":"Bob"}
+
+# Test with all same schema
+statement ok
+CREATE TABLE test_consistent AS SELECT * FROM (VALUES
+    ('{"x": 1, "y": 2}'),
+    ('{"x": 3, "y": 4}'),
+    ('{"x": 5, "y": 6}')
+) t(json_col);
+
+query I
+SELECT json_normalize(json_col::JSON) FROM test_consistent ORDER BY json_col;
+----
+{"x":1,"y":2}
+{"x":3,"y":4}
+{"x":5,"y":6}
+
+# Test with NULL values
+query I
+SELECT json_normalize(NULL::JSON);
+----
+NULL
+
+# Test with empty object
+query I
+SELECT json_normalize('{}');
+----
+{}
+
+# Test with nested objects (should preserve nesting)
+query I
+SELECT json_normalize('{"a": {"b": 1}}');
+----
+{"a":{"b":1}}
+
+# Cleanup
+statement ok
+DROP TABLE test_normalize;
+
+statement ok
+DROP TABLE test_consistent;

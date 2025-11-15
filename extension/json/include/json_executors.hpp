@@ -24,11 +24,12 @@ public:
 	static void UnaryExecute(DataChunk &args, ExpressionState &state, Vector &result, const json_function_t<T> fun) {
 		auto &lstate = JSONFunctionLocalState::ResetAndGet(state);
 		auto alc = lstate.json_allocator->GetYYAlc();
+		auto &cache = lstate.doc_cache;
 
 		auto &inputs = args.data[0];
 		UnaryExecutor::ExecuteWithNulls<string_t, T>(
 		    inputs, result, args.size(), [&](string_t input, ValidityMask &mask, idx_t idx) {
-			    auto doc = JSONCommon::ReadDocument(input, JSONCommon::READ_FLAG, alc);
+			    auto doc = JSONCommon::ReadDocumentCached(input, JSONCommon::READ_FLAG, alc, cache);
 			    return fun(doc->root, alc, result, mask, idx);
 		    });
 
@@ -42,6 +43,7 @@ public:
 		const auto &info = func_expr.bind_info->Cast<JSONReadFunctionData>();
 		auto &lstate = JSONFunctionLocalState::ResetAndGet(state);
 		auto alc = lstate.json_allocator->GetYYAlc();
+		auto &cache = lstate.doc_cache;
 
 		auto &inputs = args.data[0];
 		if (info.constant) { // Constant path
@@ -50,7 +52,7 @@ public:
 			if (info.path_type == JSONCommon::JSONPathType::REGULAR) {
 				UnaryExecutor::ExecuteWithNulls<string_t, T>(
 				    inputs, result, args.size(), [&](string_t input, ValidityMask &mask, idx_t idx) {
-					    auto doc = JSONCommon::ReadDocument(input, JSONCommon::READ_FLAG, alc);
+					    auto doc = JSONCommon::ReadDocumentCached(input, JSONCommon::READ_FLAG, alc, cache);
 					    auto val = JSONCommon::GetUnsafe(doc->root, ptr, len);
 					    if (SET_NULL_IF_NOT_FOUND && !val) {
 						    mask.SetInvalid(idx);
@@ -65,7 +67,7 @@ public:
 				UnaryExecutor::Execute<string_t, list_entry_t>(inputs, result, args.size(), [&](string_t input) {
 					vals.clear();
 
-					auto doc = JSONCommon::ReadDocument(input, JSONCommon::READ_FLAG, alc);
+					auto doc = JSONCommon::ReadDocumentCached(input, JSONCommon::READ_FLAG, alc, cache);
 					JSONCommon::GetWildcardPath(doc->root, ptr, len, vals);
 
 					auto current_size = ListVector::GetListSize(result);
@@ -100,7 +102,7 @@ public:
 			BinaryExecutor::ExecuteWithNulls<string_t, string_t, T>(
 			    inputs, *casted_paths, result, args.size(),
 			    [&](string_t input, string_t path, ValidityMask &mask, idx_t idx) {
-				    auto doc = JSONCommon::ReadDocument(input, JSONCommon::READ_FLAG, alc);
+				    auto doc = JSONCommon::ReadDocumentCached(input, JSONCommon::READ_FLAG, alc, cache);
 				    auto val = JSONCommon::Get(doc->root, path, args.data[1].GetType().IsIntegral());
 				    if (SET_NULL_IF_NOT_FOUND && !val) {
 					    mask.SetInvalid(idx);
@@ -124,6 +126,7 @@ public:
 		const auto &info = func_expr.bind_info->Cast<JSONReadManyFunctionData>();
 		auto &lstate = JSONFunctionLocalState::ResetAndGet(state);
 		auto alc = lstate.json_allocator->GetYYAlc();
+		auto &cache = lstate.doc_cache;
 		D_ASSERT(info.ptrs.size() == info.lens.size());
 
 		const auto count = args.size();
@@ -152,7 +155,7 @@ public:
 				continue;
 			}
 
-			auto doc = JSONCommon::ReadDocument(inputs[idx], JSONCommon::READ_FLAG, alc);
+			auto doc = JSONCommon::ReadDocumentCached(inputs[idx], JSONCommon::READ_FLAG, alc, cache);
 			for (idx_t path_i = 0; path_i < num_paths; path_i++) {
 				auto child_idx = offset + path_i;
 				val = JSONCommon::GetUnsafe(doc->root, info.ptrs[path_i], info.lens[path_i]);

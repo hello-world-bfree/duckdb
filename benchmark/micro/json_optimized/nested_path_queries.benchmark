@@ -1,0 +1,64 @@
+# name: benchmark/micro/json_optimized/nested_path_queries.benchmark
+# description: Queries with nested JSON path traversal
+# group: [json_optimized]
+
+name JSON Nested Path Extraction - 10K rows
+group json_optimized
+
+require json
+
+load
+CREATE TABLE events_10k AS
+SELECT row_number() OVER () as row_id, json_col::JSON as json_col
+FROM read_json('benchmark/micro/json_optimized/data/nested_10k.jsonl', columns={json_col: 'JSON'});
+
+run
+SELECT
+    json_col->'profile'->>'name' as name,
+    json_col->'profile'->>'email' as email,
+    json_col->'profile'->'contact'->'address'->>'city' as city
+FROM events_10k;
+
+cleanup
+DROP TABLE events_10k;
+
+name JSON Nested Path Extraction - 100K rows
+group json_optimized
+
+require json
+
+load
+CREATE TABLE events_100k AS
+SELECT row_number() OVER () as row_id, json_col::JSON as json_col
+FROM read_json('benchmark/micro/json_optimized/data/nested_100k.jsonl', columns={json_col: 'JSON'});
+
+run
+SELECT
+    json_col->'profile'->>'name' as name,
+    json_col->'profile'->>'email' as email,
+    json_col->'profile'->'contact'->'address'->>'city' as city
+FROM events_100k;
+
+cleanup
+DROP TABLE events_100k;
+
+name JSON Deep Nested Extraction - 100K rows
+group json_optimized
+
+require json
+
+load
+CREATE TABLE events_100k AS
+SELECT row_number() OVER () as row_id, json_col::JSON as json_col
+FROM read_json('benchmark/micro/json_optimized/data/nested_100k.jsonl', columns={json_col: 'JSON'});
+
+run
+SELECT
+    json_col->'profile'->'contact'->'address'->>'street' as street,
+    json_col->'profile'->'contact'->'address'->>'city' as city,
+    json_col->'profile'->'contact'->'address'->>'zipcode' as zipcode,
+    json_col->'activity'->'last_login'->>'timestamp' as last_login
+FROM events_100k;
+
+cleanup
+DROP TABLE events_100k;

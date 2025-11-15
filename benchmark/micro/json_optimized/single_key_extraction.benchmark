@@ -1,0 +1,51 @@
+# name: benchmark/micro/json_optimized/single_key_extraction.benchmark
+# description: Single key extraction from JSON objects
+# group: [json_optimized]
+
+name JSON Single Key Extraction - 10K rows
+group json_optimized
+
+require json
+
+load
+CREATE TABLE events_10k AS
+SELECT row_number() OVER () as row_id, json_col::JSON as json_col
+FROM read_json('benchmark/micro/json_optimized/data/consistent_10k.jsonl', columns={json_col: 'JSON'});
+
+run
+SELECT json_col->>'user_id' FROM events_10k;
+
+cleanup
+DROP TABLE events_10k;
+
+name JSON Single Key Extraction - 100K rows
+group json_optimized
+
+require json
+
+load
+CREATE TABLE events_100k AS
+SELECT row_number() OVER () as row_id, json_col::JSON as json_col
+FROM read_json('benchmark/micro/json_optimized/data/consistent_100k.jsonl', columns={json_col: 'JSON'});
+
+run
+SELECT json_col->>'user_id' FROM events_100k;
+
+cleanup
+DROP TABLE events_100k;
+
+name JSON Single Key Extraction - 1M rows
+group json_optimized
+
+require json
+
+load
+CREATE TABLE events_1m AS
+SELECT row_number() OVER () as row_id, json_col::JSON as json_col
+FROM read_json('benchmark/micro/json_optimized/data/consistent_1m.jsonl', columns={json_col: 'JSON'});
+
+run
+SELECT json_col->>'user_id' FROM events_1m;
+
+cleanup
+DROP TABLE events_1m;

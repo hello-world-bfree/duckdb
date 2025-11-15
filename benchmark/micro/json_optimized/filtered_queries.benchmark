@@ -1,0 +1,65 @@
+# name: benchmark/micro/json_optimized/filtered_queries.benchmark
+# description: Queries that filter on JSON field values
+# group: [json_optimized]
+
+name JSON Filtered Query (10% selectivity) - 10K rows
+group json_optimized
+
+require json
+
+load
+CREATE TABLE events_10k AS
+SELECT row_number() OVER () as row_id, json_col::JSON as json_col
+FROM read_json('benchmark/micro/json_optimized/data/consistent_10k.jsonl', columns={json_col: 'JSON'});
+
+run
+SELECT
+    json_col->>'user_id' as user_id,
+    json_col->>'email' as email
+FROM events_10k
+WHERE json_col->>'status' = 'active';
+
+cleanup
+DROP TABLE events_10k;
+
+name JSON Filtered Query (10% selectivity) - 100K rows
+group json_optimized
+
+require json
+
+load
+CREATE TABLE events_100k AS
+SELECT row_number() OVER () as row_id, json_col::JSON as json_col
+FROM read_json('benchmark/micro/json_optimized/data/consistent_100k.jsonl', columns={json_col: 'JSON'});
+
+run
+SELECT
+    json_col->>'user_id' as user_id,
+    json_col->>'email' as email
+FROM events_100k
+WHERE json_col->>'status' = 'active';
+
+cleanup
+DROP TABLE events_100k;
+
+name JSON Filtered with Multiple Conditions - 100K rows
+group json_optimized
+
+require json
+
+load
+CREATE TABLE events_100k AS
+SELECT row_number() OVER () as row_id, json_col::JSON as json_col
+FROM read_json('benchmark/micro/json_optimized/data/consistent_100k.jsonl', columns={json_col: 'JSON'});
+
+run
+SELECT
+    json_col->>'user_id' as user_id,
+    json_col->>'email' as email,
+    json_col->>'age' as age
+FROM events_100k
+WHERE json_col->>'status' = 'active'
+  AND CAST(json_col->>'age' AS INTEGER) > 30;
+
+cleanup
+DROP TABLE events_100k;

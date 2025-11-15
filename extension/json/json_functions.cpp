@@ -142,6 +142,7 @@ unique_ptr<FunctionLocalState> JSONFunctionLocalState::InitCastLocalState(CastLo
 JSONFunctionLocalState &JSONFunctionLocalState::ResetAndGet(ExpressionState &state) {
 	auto &lstate = ExecuteFunctionState::GetFunctionState(state)->Cast<JSONFunctionLocalState>();
 	lstate.json_allocator->Reset();
+	lstate.doc_cache.Clear();
 	return lstate;
 }
 
@@ -164,6 +165,7 @@ vector<ScalarFunctionSet> JSONFunctions::GetScalarFunctions() {
 	functions.push_back(GetStructureFunction());
 	AddAliases({"json_transform", "from_json"}, GetTransformFunction(), functions);
 	AddAliases({"json_transform_strict", "from_json_strict"}, GetTransformStrictFunction(), functions);
+	functions.push_back(GetNormalizeFunction());
 
 	// Other
 	functions.push_back(GetArrayLengthFunction());

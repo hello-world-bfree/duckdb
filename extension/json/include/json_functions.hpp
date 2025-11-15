@@ -62,8 +62,32 @@ public:
 	static unique_ptr<FunctionLocalState> InitCastLocalState(CastLocalStateParameters &parameters);
 	static JSONFunctionLocalState &ResetAndGet(ExpressionState &state);
 
+	//! Cache for parsed JSON documents to avoid re-parsing the same JSON multiple times
+	struct DocumentCache {
+		const char *cached_input_ptr = nullptr;
+		idx_t cached_input_len = 0;
+		yyjson_doc *cached_doc = nullptr;
+
+		inline bool IsValid(const char *input_ptr, idx_t input_len) const {
+			return cached_doc != nullptr && cached_input_ptr == input_ptr && cached_input_len == input_len;
+		}
+
+		inline void Set(const char *input_ptr, idx_t input_len, yyjson_doc *doc) {
+			cached_input_ptr = input_ptr;
+			cached_input_len = input_len;
+			cached_doc = doc;
+		}
+
+		inline void Clear() {
+			cached_input_ptr = nullptr;
+			cached_input_len = 0;
+			cached_doc = nullptr;
+		}
+	};
+
 public:
 	shared_ptr<JSONAllocator> json_allocator;
+	DocumentCache doc_cache;
 };
 
 class JSONFunctions {
@@ -94,6 +118,7 @@ private:
 	static ScalarFunctionSet GetStructureFunction();
 	static ScalarFunctionSet GetTransformFunction();
 	static ScalarFunctionSet GetTransformStrictFunction();
+	static ScalarFunctionSet GetNormalizeFunction();
 
 	static ScalarFunctionSet GetArrayLengthFunction();
 	static ScalarFunctionSet GetContainsFunction();

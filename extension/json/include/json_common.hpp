@@ -227,6 +227,23 @@ public:
 		return ReadDocument(input.GetDataWriteable(), input.GetSize(), flg, alc);
 	}
 
+	//! Read document with caching - checks cache first to avoid re-parsing the same JSON
+	template<class CACHE_T>
+	static inline yyjson_doc *ReadDocumentCached(const string_t &input, const yyjson_read_flag flg, yyjson_alc *alc, CACHE_T &cache) {
+		auto input_ptr = input.GetData();
+		auto input_len = input.GetSize();
+
+		// Check if we have a cache hit
+		if (cache.IsValid(input_ptr, input_len)) {
+			return cache.cached_doc;
+		}
+
+		// Cache miss - parse the document
+		auto doc = ReadDocument(input.GetDataWriteable(), input_len, flg, alc);
+		cache.Set(input_ptr, input_len, doc);
+		return doc;
+	}
+
 	static string FormatParseError(const char *data, idx_t length, yyjson_read_err &error, const string &extra = "") {
 		D_ASSERT(error.code != YYJSON_READ_SUCCESS);
 		// Truncate, so we don't print megabytes worth of JSON
