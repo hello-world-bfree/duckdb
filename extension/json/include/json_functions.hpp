@@ -119,6 +119,8 @@ private:
 	static ScalarFunctionSet GetTransformFunction();
 	static ScalarFunctionSet GetTransformStrictFunction();
 	static ScalarFunctionSet GetNormalizeFunction();
+	static ScalarFunctionSet GetInferTypeFunction();
+	static ScalarFunctionSet GetToStructFunction();
 
 	static ScalarFunctionSet GetArrayLengthFunction();
 	static ScalarFunctionSet GetContainsFunction();

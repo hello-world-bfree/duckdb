@@ -166,6 +166,8 @@ vector<ScalarFunctionSet> JSONFunctions::GetScalarFunctions() {
 	AddAliases({"json_transform", "from_json"}, GetTransformFunction(), functions);
 	AddAliases({"json_transform_strict", "from_json_strict"}, GetTransformStrictFunction(), functions);
 	functions.push_back(GetNormalizeFunction());
+	functions.push_back(GetInferTypeFunction());
+	functions.push_back(GetToStructFunction());
 
 	// Other
 	functions.push_back(GetArrayLengthFunction());
