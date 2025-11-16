@@ -1,0 +1,43 @@
+# name: test/sql/json/scalar/test_json_normalize.test
+# description: Test JSON normalize function
+# group: [scalar]
+
+require json
+
+statement ok
+pragma enable_verification
+
+query I
+SELECT json_normalize('{"a": 1, "b": 2}');
+----
+{"a":1,"b":2}
+
+query I
+SELECT json_normalize('{"a": 1, "b": {"c": 2}}');
+----
+{"a":1,"b.c":2}
+
+query I
+SELECT json_normalize('{"a": {"b": {"c": 3}}}');
+----
+{"a.b.c":3}
+
+query I
+SELECT json_normalize(NULL);
+----
+NULL
+
+query I
+SELECT json_normalize('null'::json);
+----
+null
+
+query I
+SELECT json_normalize('[]'::json);
+----
+[]
+
+query I
+SELECT json_normalize('[1, 2, 3]'::json);
+----
+[1,2,3]
