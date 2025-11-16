@@ -142,7 +142,6 @@ unique_ptr<FunctionLocalState> JSONFunctionLocalState::InitCastLocalState(CastLo
 JSONFunctionLocalState &JSONFunctionLocalState::ResetAndGet(ExpressionState &state) {
 	auto &lstate = ExecuteFunctionState::GetFunctionState(state)->Cast<JSONFunctionLocalState>();
 	lstate.json_allocator->Reset();
-	lstate.doc_cache.Clear();
 	return lstate;
 }
 

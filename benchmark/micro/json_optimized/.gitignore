@@ -1,5 +1,0 @@
-# Generated test data files
-data/*.jsonl
-
-# Build output
-*.log
