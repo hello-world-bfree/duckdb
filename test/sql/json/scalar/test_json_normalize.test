@@ -7,36 +7,55 @@ require json
 statement ok
 pragma enable_verification
 
+# Single object returns as-is (nothing to normalize against)
 query I
 SELECT json_normalize('{"a": 1, "b": 2}');
 ----
 {"a":1,"b":2}
 
+# Array of objects with different keys - normalize to have all keys
 query I
-SELECT json_normalize('{"a": 1, "b": {"c": 2}}');
+SELECT json_normalize('[{"a": 1}, {"b": 2}]');
 ----
-{"a":1,"b.c":2}
+[{"a":1,"b":null},{"a":null,"b":2}]
 
+# Array of objects with overlapping keys
 query I
-SELECT json_normalize('{"a": {"b": {"c": 3}}}');
+SELECT json_normalize('[{"a": 1, "b": 2}, {"b": 3, "c": 4}]');
 ----
-{"a.b.c":3}
+[{"a":1,"b":2,"c":null},{"a":null,"b":3,"c":4}]
 
+# Array of objects where all have same keys (no change needed)
 query I
-SELECT json_normalize(NULL);
+SELECT json_normalize('[{"a": 1, "b": 2}, {"a": 3, "b": 4}]');
 ----
-NULL
+[{"a":1,"b":2},{"a":3,"b":4}]
 
-query I
-SELECT json_normalize('null'::json);
-----
-null
-
+# Empty array
 query I
 SELECT json_normalize('[]'::json);
 ----
 []
 
+# Array with single object
+query I
+SELECT json_normalize('[{"a": 1}]');
+----
+[{"a":1}]
+
+# NULL input
+query I
+SELECT json_normalize(NULL);
+----
+NULL
+
+# null JSON value
+query I
+SELECT json_normalize('null'::json);
+----
+null
+
+# Non-array types returned as-is
 query I
 SELECT json_normalize('[1, 2, 3]'::json);
 ----

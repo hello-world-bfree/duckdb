@@ -1,40 +1,71 @@
 #include "json_executors.hpp"
+#include <set>
 
 namespace duckdb {
-
-static void NormalizeObject(yyjson_val *val, const string &prefix, yyjson_mut_doc *mut_doc, yyjson_mut_val *result_obj) {
-	size_t idx, max;
-	yyjson_val *key, *child_val;
-	yyjson_obj_foreach(val, idx, max, key, child_val) {
-		string new_key = prefix.empty() ? unsafe_yyjson_get_str(key) : prefix + "." + unsafe_yyjson_get_str(key);
-		if (unsafe_yyjson_is_obj(child_val)) {
-			NormalizeObject(child_val, new_key, mut_doc, result_obj);
-		} else {
-			yyjson_mut_val *mut_key = yyjson_mut_strcpy(mut_doc, new_key.c_str());
-			yyjson_mut_val *mut_val = yyjson_val_mut_copy(mut_doc, child_val);
-			yyjson_mut_obj_add(result_obj, mut_key, mut_val);
-		}
-	}
-}
 
 static string_t JSONNormalize(yyjson_val *val, yyjson_alc *alc, Vector &, ValidityMask &, idx_t) {
 	D_ASSERT(alc);
 
-	if (!unsafe_yyjson_is_obj(val)) {
-		// For non-objects, just return as-is
+	// Only normalize arrays of objects
+	if (!unsafe_yyjson_is_arr(val)) {
+		// For non-arrays, just return as-is
 		size_t len_size_t;
 		auto data = yyjson_val_write_opts(val, JSONCommon::WRITE_FLAG, alc, &len_size_t, nullptr);
 		idx_t len = len_size_t;
 		return string_t(data, len);
 	}
 
-	// Create a mutable document for the result
-	yyjson_mut_doc *mut_doc = yyjson_mut_doc_new(alc);
-	yyjson_mut_val *result_obj = yyjson_mut_obj(mut_doc);
-	yyjson_mut_doc_set_root(mut_doc, result_obj);
+	// First pass: collect all unique keys from all objects in the array
+	std::set<string> all_keys;
+	size_t arr_idx, arr_max;
+	yyjson_val *arr_val;
+	yyjson_arr_foreach(val, arr_idx, arr_max, arr_val) {
+		if (unsafe_yyjson_is_obj(arr_val)) {
+			size_t obj_idx, obj_max;
+			yyjson_val *key, *obj_val;
+			yyjson_obj_foreach(arr_val, obj_idx, obj_max, key, obj_val) {
+				all_keys.insert(unsafe_yyjson_get_str(key));
+			}
+		}
+	}
 
-	// Normalize the object
-	NormalizeObject(val, "", mut_doc, result_obj);
+	// If no keys found or array is empty, return as-is
+	if (all_keys.empty()) {
+		size_t len_size_t;
+		auto data = yyjson_val_write_opts(val, JSONCommon::WRITE_FLAG, alc, &len_size_t, nullptr);
+		idx_t len = len_size_t;
+		return string_t(data, len);
+	}
+
+	// Second pass: create normalized objects with all keys
+	yyjson_mut_doc *mut_doc = yyjson_mut_doc_new(alc);
+	yyjson_mut_val *result_arr = yyjson_mut_arr(mut_doc);
+	yyjson_mut_doc_set_root(mut_doc, result_arr);
+
+	yyjson_arr_foreach(val, arr_idx, arr_max, arr_val) {
+		if (unsafe_yyjson_is_obj(arr_val)) {
+			yyjson_mut_val *new_obj = yyjson_mut_obj(mut_doc);
+
+			// Add all keys in sorted order, using null for missing keys
+			for (const auto &key_str : all_keys) {
+				yyjson_mut_val *mut_key = yyjson_mut_strcpy(mut_doc, key_str.c_str());
+				yyjson_val *existing_val = yyjson_obj_get(arr_val, key_str.c_str());
+				yyjson_mut_val *mut_val;
+				if (existing_val) {
+					mut_val = yyjson_val_mut_copy(mut_doc, existing_val);
+				} else {
+					mut_val = yyjson_mut_null(mut_doc);
+				}
+				yyjson_mut_obj_add(new_obj, mut_key, mut_val);
+			}
+
+			yyjson_mut_arr_append(result_arr, new_obj);
+		} else {
+			// Non-object elements are kept as-is
+			yyjson_mut_val *copied = yyjson_val_mut_copy(mut_doc, arr_val);
+			yyjson_mut_arr_append(result_arr, copied);
+		}
+	}
 
 	// Write the result
 	size_t len_size_t;
