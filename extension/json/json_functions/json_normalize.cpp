@@ -90,6 +90,71 @@ static void JSONNormalizeFunction(DataChunk &args, ExpressionState &state, Vecto
 	auto &input = args.data[0];
 	const idx_t count = args.size();
 
+	// Handle constant vectors for constant folding optimization
+	if (input.GetVectorType() == VectorType::CONSTANT_VECTOR) {
+		result.SetVectorType(VectorType::CONSTANT_VECTOR);
+
+		// Process single constant value
+		auto input_data = ConstantVector::GetData<string_t>(input);
+		auto result_data = ConstantVector::GetData<string_t>(result);
+
+		if (ConstantVector::IsNull(input)) {
+			ConstantVector::SetNull(result, true);
+			return;
+		}
+
+		// Parse and normalize single JSON value
+		auto doc = JSONCommon::ReadDocument(*input_data, JSONCommon::READ_FLAG, alc);
+		if (!doc->root || unsafe_yyjson_is_null(doc->root) || !yyjson_is_obj(doc->root)) {
+			// Return as-is if not an object
+			*result_data = *input_data;
+			JSONAllocator::AddBuffer(result, alc);
+			return;
+		}
+
+		// Extract schema from single value
+		JSONStructureNode schema;
+		JSONStructure::ExtractStructure(doc->root, schema, true);
+		auto all_keys = ExtractKeysFromStructure(schema);
+
+		if (all_keys.empty()) {
+			*result_data = *input_data;
+			JSONAllocator::AddBuffer(result, alc);
+			return;
+		}
+
+		// Build normalized object
+		auto mut_doc = yyjson_mut_doc_new(alc);
+		auto obj = yyjson_mut_obj(mut_doc);
+
+		json_key_map_t<yyjson_val *> existing_values;
+		size_t idx, max;
+		yyjson_val *key, *val;
+		yyjson_obj_foreach(doc->root, idx, max, key, val) {
+			const auto key_ptr = unsafe_yyjson_get_str(key);
+			const auto key_len = unsafe_yyjson_get_len(key);
+			existing_values[{key_ptr, key_len}] = val;
+		}
+
+		for (const auto &expected_key : all_keys) {
+			JSONKey lookup_key {expected_key.c_str(), expected_key.size()};
+			auto it = existing_values.find(lookup_key);
+
+			yyjson_mut_val *mut_val;
+			if (it == existing_values.end()) {
+				mut_val = yyjson_mut_null(mut_doc);
+			} else {
+				mut_val = yyjson_val_mut_copy(mut_doc, it->second);
+			}
+
+			yyjson_mut_obj_add(obj, yyjson_mut_strn(mut_doc, expected_key.c_str(), expected_key.size()), mut_val);
+		}
+
+		*result_data = JSONCommon::WriteVal<yyjson_mut_val>(obj, alc);
+		JSONAllocator::AddBuffer(result, alc);
+		return;
+	}
+
 	// First pass: collect all JSON values and build merged schema
 	vector<yyjson_val *> json_values;
 	json_values.reserve(count);
