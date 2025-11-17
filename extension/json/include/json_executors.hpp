@@ -32,6 +32,10 @@ public:
 			    return fun(doc->root, alc, result, mask, idx);
 		    });
 
+		if (args.AllConstant()) {
+			result.SetVectorType(VectorType::CONSTANT_VECTOR);
+		}
+
 		JSONAllocator::AddBuffer(result, alc);
 	}
 

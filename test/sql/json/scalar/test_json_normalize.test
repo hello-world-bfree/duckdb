@@ -19,11 +19,11 @@ CREATE TABLE test_normalize AS SELECT * FROM (VALUES
 ) t(json_col);
 
 query I
-SELECT json_normalize(json_col::JSON) FROM test_normalize ORDER BY json_col;
+SELECT json_normalize(json_col::JSON) FROM test_normalize;
 ----
-{"age":25,"city":"NYC","id":3,"name":null}
-{"age":30,"city":null,"id":1,"name":"Alice"}
-{"age":null,"city":null,"id":2,"name":"Bob"}
+{"id": 1, "name": "Alice", "age": 30, "city": null}
+{"id": 2, "name": "Bob", "age": null, "city": null}
+{"id": 3, "name": null, "age": 25, "city": "NYC"}
 
 # Test with all same schema
 statement ok
