@@ -6,8 +6,8 @@ namespace duckdb {
 
 //! Normalize a JSON object by ensuring all keys are present (filling missing ones with NULL)
 //! This function takes a JSON object and a list of expected keys, returning a struct with all keys
-static void NormalizeJSONWithKeys(yyjson_val *json_obj, const vector<string> &expected_keys,
-                                   Vector &result, idx_t result_idx, yyjson_alc *alc) {
+static void NormalizeJSONWithKeys(yyjson_val *json_obj, const vector<string> &expected_keys, Vector &result,
+                                  idx_t result_idx, yyjson_alc *alc) {
 	D_ASSERT(yyjson_is_obj(json_obj));
 
 	// Build a map of existing keys in the JSON object
@@ -30,7 +30,7 @@ static void NormalizeJSONWithKeys(yyjson_val *json_obj, const vector<string> &ex
 		auto &child_validity = FlatVector::Validity(child_vector);
 
 		const auto &expected_key = expected_keys[key_idx];
-		JSONKey lookup_key{expected_key.c_str(), expected_key.size()};
+		JSONKey lookup_key {expected_key.c_str(), expected_key.size()};
 
 		auto it = key_values.find(lookup_key);
 		if (it == key_values.end()) {
@@ -75,7 +75,7 @@ static vector<string> ExtractKeysFromStructure(const JSONStructureNode &node) {
 
 //! Scan a DataChunk of JSON values to extract a unified schema
 static unique_ptr<FunctionData> BindNormalizeSchema(ClientContext &context, ScalarFunction &bound_function,
-                                                     vector<unique_ptr<Expression>> &arguments) {
+                                                    vector<unique_ptr<Expression>> &arguments) {
 	// The actual schema detection will happen at runtime
 	// Return a JSON type for now
 	bound_function.return_type = LogicalType::JSON();
@@ -115,24 +115,19 @@ static void JSONNormalizeFunction(DataChunk &args, ExpressionState &state, Vecto
 
 	if (all_keys.empty()) {
 		// No consistent schema found, return original JSON
-		UnaryExecutor::Execute<string_t, string_t>(input, result, count, [](string_t input) {
-			return input;
-		});
+		UnaryExecutor::Execute<string_t, string_t>(input, result, count, [](string_t input) { return input; });
 		return;
 	}
 
 	// Convert merged schema to a LogicalType
 	LogicalType normalized_type;
 	try {
-		normalized_type = JSONStructure::StructureToType(state.GetContext(), merged_schema,
-		                                                  NumericLimits<idx_t>::Maximum(),
-		                                                  1.0, NumericLimits<idx_t>::Maximum(),
-		                                                  0, LogicalTypeId::SQLNULL);
+		normalized_type =
+		    JSONStructure::StructureToType(state.GetContext(), merged_schema, NumericLimits<idx_t>::Maximum(), 1.0,
+		                                   NumericLimits<idx_t>::Maximum(), 0, LogicalTypeId::SQLNULL);
 	} catch (...) {
 		// Schema inference failed, return original JSON
-		UnaryExecutor::Execute<string_t, string_t>(input, result, count, [](string_t input) {
-			return input;
-		});
+		UnaryExecutor::Execute<string_t, string_t>(input, result, count, [](string_t input) { return input; });
 		return;
 	}
 
@@ -169,7 +164,7 @@ static void JSONNormalizeFunction(DataChunk &args, ExpressionState &state, Vecto
 
 		// Add all expected keys
 		for (const auto &expected_key : all_keys) {
-			JSONKey lookup_key{expected_key.c_str(), expected_key.size()};
+			JSONKey lookup_key {expected_key.c_str(), expected_key.size()};
 			auto it = existing_values.find(lookup_key);
 
 			yyjson_mut_val *mut_val;
@@ -192,10 +187,10 @@ static void JSONNormalizeFunction(DataChunk &args, ExpressionState &state, Vecto
 
 ScalarFunctionSet JSONFunctions::GetNormalizeFunction() {
 	ScalarFunctionSet set("json_normalize");
-	set.AddFunction(ScalarFunction({LogicalType::JSON()}, LogicalType::JSON(), JSONNormalizeFunction,
-	                               nullptr, nullptr, nullptr, JSONFunctionLocalState::Init));
-	set.AddFunction(ScalarFunction({LogicalType::VARCHAR}, LogicalType::JSON(), JSONNormalizeFunction,
-	                               nullptr, nullptr, nullptr, JSONFunctionLocalState::Init));
+	set.AddFunction(ScalarFunction({LogicalType::JSON()}, LogicalType::JSON(), JSONNormalizeFunction, nullptr, nullptr,
+	                               nullptr, JSONFunctionLocalState::Init));
+	set.AddFunction(ScalarFunction({LogicalType::VARCHAR}, LogicalType::JSON(), JSONNormalizeFunction, nullptr, nullptr,
+	                               nullptr, JSONFunctionLocalState::Init));
 	return set;
 }
 

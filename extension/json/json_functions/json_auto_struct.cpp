@@ -38,9 +38,9 @@ static void JSONInferTypeFunction(DataChunk &args, ExpressionState &state, Vecto
 	// Convert to LogicalType
 	LogicalType inferred_type;
 	try {
-		inferred_type = JSONStructure::StructureToType(state.GetContext(), merged_schema,
-		                                               NumericLimits<idx_t>::Maximum(), 1.0,
-		                                               NumericLimits<idx_t>::Maximum(), 0, LogicalTypeId::SQLNULL);
+		inferred_type =
+		    JSONStructure::StructureToType(state.GetContext(), merged_schema, NumericLimits<idx_t>::Maximum(), 1.0,
+		                                   NumericLimits<idx_t>::Maximum(), 0, LogicalTypeId::SQLNULL);
 	} catch (...) {
 		// Return NULL if inference fails
 		result.SetVectorType(VectorType::CONSTANT_VECTOR);
@@ -59,8 +59,8 @@ static void JSONInferTypeFunction(DataChunk &args, ExpressionState &state, Vecto
 
 ScalarFunctionSet JSONFunctions::GetInferTypeFunction() {
 	ScalarFunctionSet set("json_infer_type");
-	set.AddFunction(ScalarFunction({LogicalType::JSON()}, LogicalType::VARCHAR, JSONInferTypeFunction, nullptr,
-	                               nullptr, nullptr, JSONFunctionLocalState::Init));
+	set.AddFunction(ScalarFunction({LogicalType::JSON()}, LogicalType::VARCHAR, JSONInferTypeFunction, nullptr, nullptr,
+	                               nullptr, JSONFunctionLocalState::Init));
 	set.AddFunction(ScalarFunction({LogicalType::VARCHAR}, LogicalType::VARCHAR, JSONInferTypeFunction, nullptr,
 	                               nullptr, nullptr, JSONFunctionLocalState::Init));
 	return set;
