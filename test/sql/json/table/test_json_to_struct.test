@@ -105,9 +105,14 @@ INSERT INTO test_json VALUES
     ('{"id": 2, "value": "b"}'),
     ('{"id": 3, "value": "c"}');
 
+# Note: Table functions cannot contain subqueries directly
+# Use a CTE or pre-materialize the array
 query II
+WITH json_array AS (
+    SELECT ARRAY_AGG(json_col) as arr FROM test_json
+)
 SELECT data.id, data.value
-FROM json_to_struct((SELECT ARRAY_AGG(json_col) FROM test_json))
+FROM json_array, json_to_struct(json_array.arr)
 ORDER BY data.id;
 ----
 1	a
