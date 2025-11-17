@@ -4,12 +4,13 @@
 #include "json_transform.hpp"
 #include "duckdb/function/table_function.hpp"
 #include "duckdb/main/client_context.hpp"
+#include "duckdb/main/extension/extension_loader.hpp"
 #include "duckdb/common/types/data_chunk.hpp"
 
 namespace duckdb {
 
 struct JSONToStructBindData : public TableFunctionData {
-	vector<string_t> json_strings;
+	vector<string> json_strings;  // Store as string (owns memory)
 	LogicalType result_type;
 	vector<string> all_keys;
 };
@@ -128,10 +129,10 @@ static unique_ptr<FunctionData> JSONToStructBind(ClientContext &context, TableFu
 		if (val.IsNull()) {
 			json_values.push_back(nullptr);
 			docs.push_back(nullptr);
-			result->json_strings.push_back(string_t());
+			result->json_strings.push_back("");  // Empty string for NULL
 		} else {
 			auto str = val.GetValue<string>();
-			result->json_strings.push_back(string_t(str));
+			result->json_strings.push_back(str);  // Store as std::string
 			auto doc = JSONCommon::ReadDocument(string_t(str), JSONCommon::READ_FLAG, alc);
 			docs.push_back(doc);
 			json_values.push_back(doc ? doc->root : nullptr);
@@ -179,12 +180,12 @@ static void JSONToStructFunction(ClientContext &context, TableFunctionInput &dat
 	while (global_state.current_row < bind_data.json_strings.size() && count < max_count) {
 		auto &json_str = bind_data.json_strings[global_state.current_row];
 
-		if (json_str.GetSize() == 0) {
+		if (json_str.empty()) {
 			// NULL value
 			FlatVector::SetNull(output.data[0], count, true);
 		} else {
 			// Parse and normalize
-			auto doc = JSONCommon::ReadDocument(json_str, JSONCommon::READ_FLAG, alc);
+			auto doc = JSONCommon::ReadDocument(string_t(json_str), JSONCommon::READ_FLAG, alc);
 
 			if (!doc || !doc->root || !yyjson_is_obj(doc->root)) {
 				FlatVector::SetNull(output.data[0], count, true);
