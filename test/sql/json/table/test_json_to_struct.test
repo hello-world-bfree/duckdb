@@ -75,7 +75,7 @@ FROM json_to_struct([
     '{"int_val": 42, "float_val": 3.14, "big_val": 9223372036854775807}'::JSON
 ]) LIMIT 1;
 ----
-BIGINT	DOUBLE	UBIGINT
+BIGINT	DOUBLE	BIGINT
 
 # Test with boolean values
 query II
