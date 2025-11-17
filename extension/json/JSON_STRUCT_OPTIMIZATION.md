@@ -26,9 +26,14 @@ Convert JSON to native STRUCT type for 10-100x performance improvement.
 ### Usage
 
 ```sql
--- Convert JSON column to STRUCT
-SELECT * FROM json_to_struct((SELECT ARRAY_AGG(json_col) FROM my_table));
+-- Convert literal JSON arrays to STRUCT (for schema inference)
+SELECT * FROM json_to_struct([
+    '{"id": 1, "name": "Alice"}'::JSON,
+    '{"id": 2, "name": "Bob"}'::JSON
+]);
 ```
+
+**Important**: `json_to_struct` requires literal arrays at bind time for schema inference. It cannot directly reference table columns. For converting table data, use `json_transform` with a known schema (see examples below).
 
 The function:
 1. **Normalizes schemas** - Ensures all JSON objects have the same keys (adds NULL for missing)
@@ -38,20 +43,13 @@ The function:
 ### Basic Example
 
 ```sql
--- Original JSON data with inconsistent schemas
-CREATE TABLE json_data (json_col JSON);
-INSERT INTO json_data VALUES
-    ('{"id": 1, "name": "Alice", "age": 30}'),
-    ('{"id": 2, "name": "Bob"}'),
-    ('{"id": 3, "age": 25, "city": "NYC"}');
-
--- Convert to STRUCT (automatically handles missing keys)
-CREATE TABLE struct_data AS
-SELECT * FROM json_to_struct((SELECT ARRAY_AGG(json_col) FROM json_data));
-
--- Fast queries on STRUCT
+-- Convert literal JSON with inconsistent schemas
 SELECT data.id, data.name, data.age, data.city
-FROM struct_data;
+FROM json_to_struct([
+    '{"id": 1, "name": "Alice", "age": 30}'::JSON,
+    '{"id": 2, "name": "Bob"}'::JSON,
+    '{"id": 3, "age": 25, "city": "NYC"}'::JSON
+]);
 ```
 
 Result:
@@ -64,6 +62,33 @@ Result:
 │     2 │ Bob     │  NULL │ NULL    │
 │     3 │ NULL    │    25 │ NYC     │
 └───────┴─────────┴───────┴─────────┘
+```
+
+### Converting Table Data (Production Approach)
+
+For table data, use `json_transform` with a known schema:
+
+```sql
+-- Original JSON data
+CREATE TABLE json_data (json_col JSON);
+INSERT INTO json_data VALUES
+    ('{"id": 1, "name": "Alice", "age": 30}'),
+    ('{"id": 2, "name": "Bob"}'),
+    ('{"id": 3, "age": 25, "city": "NYC"}');
+
+-- First normalize, then transform with explicit schema
+CREATE TABLE struct_data AS
+SELECT json_transform(json_normalize(json_col), '{
+    "id": "BIGINT",
+    "name": "VARCHAR",
+    "age": "BIGINT",
+    "city": "VARCHAR"
+}') as data
+FROM json_data;
+
+-- Fast queries on STRUCT
+SELECT data.id, data.name, data.age, data.city
+FROM struct_data;
 ```
 
 ## Supporting Functions

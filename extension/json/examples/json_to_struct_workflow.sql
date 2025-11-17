@@ -21,36 +21,31 @@ FROM events_json
 WHERE json_col->>'status' = 'active';
 
 -- Problem: Parsing JSON 5 times per row!
--- On 1M rows: ~15 seconds ❌
+-- On 1M rows: ~15 seconds
 
 
 -- ========================================
--- Part 2: Solution - Automatic Conversion with json_to_struct
+-- Part 2: Solution - json_to_struct for Literal Arrays
 -- ========================================
 
--- Create optimized table using json_to_struct
--- This function automatically:
--- 1. Normalizes all JSON schemas (ensures consistent keys)
--- 2. Infers the STRUCT type from the data
--- 3. Converts to native STRUCT type
-CREATE TABLE events_struct AS
-SELECT * FROM json_to_struct(ARRAY_AGG(json_col)) FROM events_json;
+-- json_to_struct is ideal for converting literal JSON arrays with schema inference
+-- It automatically normalizes schemas and infers types
+SELECT data.id, data.name, data.age, data.city
+FROM json_to_struct([
+    '{"id": 1, "name": "Alice", "age": 30}'::JSON,
+    '{"id": 2, "name": "Bob"}'::JSON,
+    '{"id": 3, "age": 25, "city": "NYC"}'::JSON
+]);
 
--- Same query - FAST! (native struct access)
-SELECT
-    data.user_id,
-    data.email,
-    data.status,
-    data.metadata.timestamp
-FROM events_struct
-WHERE data.status = 'active';
-
--- On 1M rows: ~150 milliseconds ✅ (100x faster!)
+-- Result: All records have consistent schema (missing keys become NULL)
 
 
 -- ========================================
--- Part 3: Handling Inconsistent Schemas
+-- Part 3: Converting Table Data (Production Approach)
 -- ========================================
+
+-- IMPORTANT: json_to_struct requires literal arrays at bind time
+-- For table data, use json_normalize + json_transform with explicit schema
 
 -- Sample inconsistent JSON data
 CREATE TABLE inconsistent_json (json_col JSON);
@@ -59,10 +54,20 @@ INSERT INTO inconsistent_json VALUES
     ('{"id": 2, "name": "Bob"}'),
     ('{"id": 3, "age": 25, "city": "NYC"}');
 
--- json_to_struct automatically handles this!
--- It normalizes schemas before converting to STRUCT
-CREATE TABLE normalized_struct AS
-SELECT * FROM json_to_struct((SELECT ARRAY_AGG(json_col) FROM inconsistent_json));
+-- Step 1: Normalize JSON schemas
+SELECT json_normalize(json_col) as normalized_json
+FROM inconsistent_json;
+-- Result: All records now have all keys (missing ones are NULL)
+
+-- Step 2: Convert to STRUCT with explicit schema
+CREATE TABLE struct_data AS
+SELECT json_transform(json_normalize(json_col), '{
+    "id": "BIGINT",
+    "name": "VARCHAR",
+    "age": "BIGINT",
+    "city": "VARCHAR"
+}') as data
+FROM inconsistent_json;
 
 -- Query efficiently - all records have consistent schema
 SELECT
@@ -70,25 +75,11 @@ SELECT
     data.name,
     data.age,
     data.city
-FROM normalized_struct;
+FROM struct_data;
 
 
 -- ========================================
--- Part 4: Using json_normalize Directly
--- ========================================
-
--- If you just want to normalize JSON (keep as JSON type):
-SELECT json_normalize(json_col) as normalized_json
-FROM inconsistent_json;
-
--- Result (all records now have all keys):
--- {"age":30,"city":null,"id":1,"name":"Alice"}
--- {"age":null,"city":null,"id":2,"name":"Bob"}
--- {"age":25,"city":"NYC","id":3,"name":null}
-
-
--- ========================================
--- Part 5: Manual Schema Definition
+-- Part 4: Manual Schema Definition
 -- ========================================
 
 -- If you know the schema, use json_transform directly:
@@ -108,9 +99,20 @@ SELECT
     }') as data
 FROM events_json;
 
+-- Same query - FAST! (native struct access)
+SELECT
+    data.user_id,
+    data.email,
+    data.status,
+    data.metadata.timestamp
+FROM events_struct_manual
+WHERE data.status = 'active';
+
+-- On 1M rows: ~150 milliseconds (100x faster!)
+
 
 -- ========================================
--- Part 6: Performance Comparison
+-- Part 5: Performance Comparison
 -- ========================================
 
 -- Create test data: 100K rows
@@ -120,7 +122,14 @@ FROM range(100000) t(i);
 
 -- Convert to STRUCT
 CREATE TABLE perf_test_struct AS
-SELECT * FROM json_to_struct((SELECT ARRAY_AGG(json_col) FROM perf_test_json));
+SELECT json_transform(json_col, '{
+    "user_id": "BIGINT",
+    "email": "VARCHAR",
+    "status": "VARCHAR",
+    "age": "BIGINT",
+    "score": "DOUBLE"
+}') as data
+FROM perf_test_json;
 
 -- Benchmark: Multi-field extraction with filter
 
@@ -158,17 +167,26 @@ WHERE data.status = 'active'
 /*
 Key Points:
 
-1. json_to_struct() is the single function for JSON to STRUCT conversion
-2. It automatically normalizes schemas and infers types
+1. json_to_struct() works with literal JSON arrays for schema inference
+2. For table data, use json_normalize() + json_transform() with explicit schema
 3. STRUCT is 10-100x faster than JSON for structured data
-4. Use json_normalize() if you just want to standardize JSON schemas
+4. Use json_normalize() to standardize inconsistent JSON schemas
 
 Performance Impact:
 - Single field: 10-20x faster
 - Multi-field: 50-100x faster
 - Aggregations: 100x+ faster
 
-Usage:
-  SELECT * FROM json_to_struct((SELECT ARRAY_AGG(json_col) FROM table));
-  -- Returns a table with 'data' column of STRUCT type
+Usage Patterns:
+
+1. Literal arrays (schema inference):
+   SELECT * FROM json_to_struct([...JSON literals...]);
+
+2. Table data (explicit schema):
+   SELECT json_transform(json_normalize(json_col), '{"key": "TYPE"}')
+   FROM table;
+
+3. Known consistent schema:
+   SELECT json_transform(json_col, '{"key": "TYPE"}')
+   FROM table;
 */

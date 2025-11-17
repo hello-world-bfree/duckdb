@@ -95,29 +95,22 @@ FROM json_to_struct([]::JSON[]);
 ----
 0
 
-# Test with ARRAY_AGG pattern (typical usage)
-statement ok
-CREATE TABLE test_json (json_col JSON);
-
-statement ok
-INSERT INTO test_json VALUES
-    ('{"id": 1, "value": "a"}'),
-    ('{"id": 2, "value": "b"}'),
-    ('{"id": 3, "value": "c"}');
-
-# Note: Table functions cannot contain subqueries directly
-# Use a CTE or pre-materialize the array
+# Test with larger array (simulating typical usage)
+# Note: json_to_struct requires literal arrays at bind time for schema inference
+# This means it cannot directly reference table columns
 query II
-WITH json_array AS (
-    SELECT ARRAY_AGG(json_col) as arr FROM test_json
-)
 SELECT data.id, data.value
-FROM json_array, json_to_struct(json_array.arr)
+FROM json_to_struct([
+    '{"id": 1, "value": "a"}'::JSON,
+    '{"id": 2, "value": "b"}'::JSON,
+    '{"id": 3, "value": "c"}'::JSON,
+    '{"id": 4, "value": "d"}'::JSON,
+    '{"id": 5, "value": "e"}'::JSON
+])
 ORDER BY data.id;
 ----
 1	a
 2	b
 3	c
-
-statement ok
-DROP TABLE test_json;
+4	d
+5	e
