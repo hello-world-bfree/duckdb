@@ -78,6 +78,7 @@ public:
 	static void RegisterSimpleCastFunctions(ExtensionLoader &loader);
 	static void RegisterJSONCreateCastFunctions(ExtensionLoader &loader);
 	static void RegisterJSONTransformCastFunctions(ExtensionLoader &loader);
+	static void RegisterJSONToStructFunction(ExtensionLoader &loader);
 
 private:
 	// Scalar functions
@@ -95,9 +96,6 @@ private:
 	static ScalarFunctionSet GetTransformFunction();
 	static ScalarFunctionSet GetTransformStrictFunction();
 	static ScalarFunctionSet GetNormalizeFunction();
-
-	// Table functions (public)
-	static void RegisterJSONToStructFunction(ExtensionLoader &loader);
 
 	static ScalarFunctionSet GetArrayLengthFunction();
 	static ScalarFunctionSet GetContainsFunction();

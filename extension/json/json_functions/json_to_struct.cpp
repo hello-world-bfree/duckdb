@@ -81,9 +81,11 @@ static vector<string> ExtractKeysFromStructure(const JSONStructureNode &node) {
 	}
 
 	for (const auto &desc : node.descriptions) {
-		if (desc.first == JSONCommon::TYPE_STRING_OBJECT && desc.second.children) {
-			for (const auto &child : *desc.second.children) {
-				keys.push_back(child.first);
+		if (desc.type == LogicalTypeId::STRUCT && !desc.children.empty()) {
+			for (const auto &child : desc.children) {
+				if (child.key) {
+					keys.push_back(*child.key);
+				}
 			}
 		}
 	}
