@@ -182,6 +182,10 @@ static void JSONNormalizeFunction(DataChunk &args, ExpressionState &state, Vecto
 		result_data[i] = JSONCommon::WriteVal<yyjson_mut_val>(obj, alc);
 	}
 
+	if (args.AllConstant()) {
+		result.SetVectorType(VectorType::CONSTANT_VECTOR);
+	}
+
 	JSONAllocator::AddBuffer(result, alc);
 }
 
