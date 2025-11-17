@@ -95,7 +95,9 @@ private:
 	static ScalarFunctionSet GetTransformFunction();
 	static ScalarFunctionSet GetTransformStrictFunction();
 	static ScalarFunctionSet GetNormalizeFunction();
-	static ScalarFunctionSet GetInferTypeFunction();
+
+	// Table functions (public)
+	static void RegisterJSONToStructFunction(ExtensionLoader &loader);
 
 	static ScalarFunctionSet GetArrayLengthFunction();
 	static ScalarFunctionSet GetContainsFunction();

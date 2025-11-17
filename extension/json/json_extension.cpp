@@ -50,6 +50,7 @@ static void LoadInternal(ExtensionLoader &loader) {
 	for (auto &fun : JSONFunctions::GetTableFunctions()) {
 		loader.RegisterFunction(fun);
 	}
+	JSONFunctions::RegisterJSONToStructFunction(loader);
 
 	// JSON pragma functions
 	for (auto &fun : JSONFunctions::GetPragmaFunctions()) {

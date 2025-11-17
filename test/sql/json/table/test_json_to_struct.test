@@ -1,0 +1,118 @@
+# name: test/sql/json/table/test_json_to_struct.test
+# description: Test json_to_struct table function
+# group: [table]
+
+require json
+
+statement ok
+PRAGMA enable_verification
+
+# Test basic json_to_struct with consistent schemas
+query III
+SELECT data.id, data.name, data.age
+FROM json_to_struct([
+    '{"id": 1, "name": "Alice", "age": 30}'::JSON,
+    '{"id": 2, "name": "Bob", "age": 25}'::JSON,
+    '{"id": 3, "name": "Charlie", "age": 35}'::JSON
+]);
+----
+1	Alice	30
+2	Bob	25
+3	Charlie	35
+
+# Test with inconsistent schemas (normalization)
+query IIII
+SELECT data.id, data.name, data.age, data.city
+FROM json_to_struct([
+    '{"id": 1, "name": "Alice", "age": 30}'::JSON,
+    '{"id": 2, "name": "Bob"}'::JSON,
+    '{"id": 3, "age": 25, "city": "NYC"}'::JSON
+]);
+----
+1	Alice	30	NULL
+2	Bob	NULL	NULL
+3	NULL	25	NYC
+
+# Test with VARCHAR input
+query II
+SELECT data.a, data.b
+FROM json_to_struct([
+    '{"a": 1, "b": "x"}',
+    '{"a": 2, "b": "y"}'
+]);
+----
+1	x
+2	y
+
+# Test with nested objects
+query I
+SELECT data.user.name
+FROM json_to_struct([
+    '{"user": {"name": "Alice", "id": 1}}'::JSON,
+    '{"user": {"name": "Bob", "id": 2}}'::JSON
+]);
+----
+Alice
+Bob
+
+# Test with NULL values in array
+query II
+SELECT data.id, data.name
+FROM json_to_struct([
+    '{"id": 1, "name": "Alice"}'::JSON,
+    NULL::JSON,
+    '{"id": 3, "name": "Charlie"}'::JSON
+]);
+----
+1	Alice
+NULL	NULL
+3	Charlie
+
+# Test with different numeric types
+query III
+SELECT typeof(data.int_val), typeof(data.float_val), typeof(data.big_val)
+FROM json_to_struct([
+    '{"int_val": 42, "float_val": 3.14, "big_val": 9223372036854775807}'::JSON
+]) LIMIT 1;
+----
+BIGINT	DOUBLE	UBIGINT
+
+# Test with boolean values
+query II
+SELECT data.flag, data.name
+FROM json_to_struct([
+    '{"flag": true, "name": "yes"}'::JSON,
+    '{"flag": false, "name": "no"}'::JSON
+]);
+----
+true	yes
+false	no
+
+# Test empty array returns empty result
+query I
+SELECT COUNT(*)
+FROM json_to_struct([]::JSON[]);
+----
+0
+
+# Test with ARRAY_AGG pattern (typical usage)
+statement ok
+CREATE TABLE test_json (json_col JSON);
+
+statement ok
+INSERT INTO test_json VALUES
+    ('{"id": 1, "value": "a"}'),
+    ('{"id": 2, "value": "b"}'),
+    ('{"id": 3, "value": "c"}');
+
+query II
+SELECT data.id, data.value
+FROM json_to_struct((SELECT ARRAY_AGG(json_col) FROM test_json))
+ORDER BY data.id;
+----
+1	a
+2	b
+3	c
+
+statement ok
+DROP TABLE test_json;
